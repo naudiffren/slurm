@@ -2677,7 +2677,7 @@ extern int slurm_conf_get_addr(const char *node_name, slurm_addr_t *address)
 					slurm_conf_unlock();
 					return SLURM_FAILURE;
 				}
-				p->addr_initialized = true;
+				//p->addr_initialized = true;
 			}
 			*address = p->addr;
 			slurm_conf_unlock();
