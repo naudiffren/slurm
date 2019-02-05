@@ -262,7 +262,7 @@ static void _do_power_work(time_t now)
 	bitstr_t *avoid_node_bitmap = NULL, *failed_node_bitmap = NULL;
 	bitstr_t *wake_node_bitmap = NULL, *sleep_node_bitmap = NULL;
 	struct node_record *node_ptr;
-	bool run_suspend = false;
+	bool run_suspend = true;
 
 	if (last_work_scan == 0) {
 		if (exc_nodes && (_parse_exc_nodes() != SLURM_SUCCESS))
@@ -316,17 +316,17 @@ static void _do_power_work(time_t now)
 	suspend_cnt = (suspend_cnt_f + 0.5);
 	resume_cnt  = (resume_cnt_f  + 0.5);
 
-	if (now > (last_suspend + suspend_timeout)) {
-		/* ready to start another round of node suspends */
-		run_suspend = true;
-		if (last_suspend) {
-			bit_nclear(suspend_node_bitmap, 0,
-				   (node_record_count - 1));
-			bit_nclear(resume_node_bitmap, 0,
-				   (node_record_count - 1));
-			last_suspend = (time_t) 0;
-		}
-	}
+	//if (now > (last_suspend + suspend_timeout)) {
+	//	/* ready to start another round of node suspends */
+	//	run_suspend = true;
+	//	if (last_suspend) {
+	//		bit_nclear(suspend_node_bitmap, 0,
+	//			   (node_record_count - 1));
+	//		bit_nclear(resume_node_bitmap, 0,
+	//			   (node_record_count - 1));
+	//		last_suspend = (time_t) 0;
+	//	}
+	//}
 
 	last_work_scan = now;
 
@@ -395,17 +395,26 @@ static void _do_power_work(time_t now)
 			suspend_cnt_f++;
 			node_ptr->node_state |= NODE_STATE_POWER_SAVE;
 			node_ptr->node_state &= (~NODE_STATE_NO_RESPOND);
-			if (!IS_NODE_DOWN(node_ptr) &&
-			    !IS_NODE_DRAIN(node_ptr) &&
-			    !IS_NODE_FAIL(node_ptr))
-				make_node_avail(i);
+			node_ptr->last_response = now + suspend_timeout;
+			last_suspend = now;
 			bit_set(power_node_bitmap,   i);
 			bit_set(sleep_node_bitmap,   i);
 			bit_set(suspend_node_bitmap, i);
-			last_suspend = now;
-			node_ptr->last_idle = 0;
+
+			bit_clear(avail_node_bitmap, i);
 		}
 
+		if (susp_state &&
+		    bit_test(suspend_node_bitmap, i) &&
+		    (node_ptr->last_response < now)) {
+			//if (!IS_NODE_DOWN(node_ptr) &&
+			//    !IS_NODE_DRAIN(node_ptr) &&
+			//    !IS_NODE_FAIL(node_ptr))
+			//	make_node_avail(i);
+			make_node_avail(i);
+			node_ptr->last_idle = 0;
+			bit_clear(suspend_node_bitmap, i);
+		}
 		/*
 		 * Down nodes as if not resumed by ResumeTimeout
 		 */
